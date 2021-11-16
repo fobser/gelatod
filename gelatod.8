@@ -1,0 +1,115 @@
+.\"	$OpenBSD$
+.\"
+.\" Copyright (c) 2021 Florian Obser <florian@openbsd.org>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate: November 15 2021 $
+.Dt GELATOD 8
+.Os
+.Sh NAME
+.Nm gelatod
+.Nd a CLAT configuration daemon
+.Sh SYNOPSIS
+.Nm
+.Op Fl dv
+.Sh DESCRIPTION
+.Nm
+is a CLAT (Customer-side transLATor) configuration daemon.
+It is part of 464XLAT, an architecture for providing limited IPv4
+connectivity across an IPv6-only network.
+It detects the presence of a NAT64 translator in IPv6 only networks
+and configures
+.Xr pf 4
+to translate IPv4 packets into IPv6 packets for programs that do not work
+with DNS64.
+.Pp
+Because address family translation overrides the routing table, it's only
+possible to use
+.Cm af-to
+in
+.Xr pf 4
+on inbound rules.
+To make this work with localy generated traffic
+.Nm
+requires two
+.Xr pair 4
+interfaces in different routing domains and an IPv4 default route pointing
+to the second
+.Xr pair 4
+interface.
+.Bd -literal -offset indent
+ifconfig pair1 inet 192.0.0.4/29
+ifconfig pair2 rdomain 1
+ifconfig pair2 inet 192.0.0.1/29
+ifconfig pair1 patch pair2
+route add -host -inet default 192.0.0.1 -priority 48
+.Ed
+.Pp
+Furthermore it needs an anchor in
+.Xr pf 4
+called
+.Cm clat
+into which it will add address family translation rules.
+.Pp
+For example, it will load rules like the following when it detects NAT64:
+.Bd -literal -offset indent
+pass in log quick on pair2 inet af-to inet6 \e
+    from 2001:db8::da68:f613:4573:4ed0 to 64:ff9b::/96 \e
+    rtable 0
+.Ed
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl d
+Do not daemonize.
+If this option is specified,
+.Nm
+will run in the foreground and log to
+.Em stderr .
+.It Fl v
+Produce more verbose output.
+Multiple
+.Fl v
+options increase the verbosity.
+.El
+.Sh SEE ALSO
+.Xr pair 4 ,
+.Xr pf 4 ,
+.Xr hostname.if 5 ,
+.Xr ifconfig 8 ,
+.Xr slaacd 8
+.Sh STANDARDS
+.Rs
+.%A M. Mawatari
+.%A M. Kawashima
+.%A C. Byrne
+.%D April 2013
+.%R RFC 6877
+.%T 464XLAT: Combination of Stateful and Stateless Translation
+.Re
+.Pp
+.Rs
+.%A T. Savolainen
+.%A J. Korhonen
+.%A D. Wing
+.%D November 2013
+.%R RFC 7050
+.%T Discovery of the IPv6 Prefix Used for IPv6 Address Synthesis
+.Re
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm
+program was written by
+.An Florian Obser Aq Mt florian@openbsd.org .
