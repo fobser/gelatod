@@ -560,7 +560,7 @@ handle_route_message(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	struct if_announcemsghdr	*ifan;
 	struct sockaddr_rtdns		*rtdns;
 	struct sockaddr_in6		*sin6;
-	int				 xflags, if_index;
+	int				 xflags;
 	char				 ifnamebuf[IFNAMSIZ];
 	char				*if_name;
 
@@ -570,36 +570,44 @@ handle_route_message(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		if_name = if_indextoname(ifm->ifm_index, ifnamebuf);
 		if (if_name == NULL) {
 			log_debug("RTM_IFINFO: lost if %d", ifm->ifm_index);
-			if_index = ifm->ifm_index;
-			remove_iface(if_index);
-		} else {
-			xflags = get_xflags(if_name);
-			if (xflags == -1 || !(xflags & (IFXF_AUTOCONF6 |
-			    IFXF_AUTOCONF6TEMP))) {
-				log_debug("RTM_IFINFO: %s(%d) no(longer) "
-				   "autoconf6", if_name, ifm->ifm_index);
-				if_index = ifm->ifm_index;
-				remove_iface(if_index);
-			} else
-				update_iface(ifm->ifm_index, if_name);
+			remove_iface(ifm->ifm_index);
+			break;
 		}
+
+		xflags = get_xflags(if_name);
+		if (xflags == -1 || !(xflags & (IFXF_AUTOCONF6 |
+		    IFXF_AUTOCONF6TEMP))) {
+			log_debug("RTM_IFINFO: %s(%d) no(longer) "
+			    "autoconf6", if_name, ifm->ifm_index);
+			remove_iface(ifm->ifm_index);
+		} else
+			update_iface(ifm->ifm_index, if_name);
 		break;
 	case RTM_IFANNOUNCE:
 		ifan = (struct if_announcemsghdr *)rtm;
-		if_index = ifan->ifan_index;
-                if (ifan->ifan_what == IFAN_DEPARTURE) {
-			remove_iface(if_index);
-		}
+		if (ifan->ifan_what == IFAN_DEPARTURE)
+			remove_iface(ifan->ifan_index);
 		break;
 	case RTM_NEWADDR:
 		ifm = (struct if_msghdr *)rtm;
 		if_name = if_indextoname(ifm->ifm_index, ifnamebuf);
+		if (if_name == NULL) {
+			log_debug("RTM_NEWADDR: lost if %d", ifm->ifm_index);
+			remove_iface(ifm->ifm_index);
+			break;
+		}
 		log_debug("RTM_NEWADDR: %s[%u]", if_name, ifm->ifm_index);
 		update_iface(ifm->ifm_index, if_name);
 		break;
 	case RTM_DELADDR:
 		ifm = (struct if_msghdr *)rtm;
 		if_name = if_indextoname(ifm->ifm_index, ifnamebuf);
+		if (if_name == NULL) {
+			log_debug("RTM_DELADDR: lost if %d", ifm->ifm_index);
+			remove_iface(ifm->ifm_index);
+			break;
+		}
+
 		if (rtm->rtm_addrs & RTA_IFA && rti_info[RTAX_IFA]->sa_family
 		    == AF_INET6) {
 			log_debug("RTM_DELADDR: %s[%u]", if_name,
@@ -609,15 +617,21 @@ handle_route_message(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 		break;
 	case RTM_CHGADDRATTR:
 		ifm = (struct if_msghdr *)rtm;
-		if_index = ifm->ifm_index;
 		if_name = if_indextoname(ifm->ifm_index, ifnamebuf);
+		if (if_name == NULL) {
+			log_debug("RTM_CHGADDRATTR: lost if %d",
+			    ifm->ifm_index);
+			remove_iface(ifm->ifm_index);
+			break;
+		}
+
 		if (rtm->rtm_addrs & RTA_IFA && rti_info[RTAX_IFA]->sa_family
 		    == AF_INET6) {
 			sin6 = (struct sockaddr_in6 *) rti_info[RTAX_IFA];
 
 			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr))
 				break;
-			update_iface(if_index, if_name);
+			update_iface(ifm->ifm_index, if_name);
 		}
 		break;
 	case RTM_PROPOSAL:
