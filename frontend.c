@@ -74,6 +74,7 @@ struct dns_ctx {
 struct iface		{
 	LIST_ENTRY(iface)	 entries;
 	struct ether_addr	 hw_address;
+	struct sockaddr_rtdns	 rtdns;
 	struct in6_addr		 in6;
 	struct in6_addr		 dns64_prefix;
 	int			 dns64_prefixlen;
@@ -470,6 +471,8 @@ update_iface(uint32_t if_index, char* if_name)
 		    sizeof(struct in6_addr));
 		update_clat(if_index);
 	}
+	if (!IN6_IS_ADDR_UNSPECIFIED(&iface->in6) && !iface->dns_done)
+		handle_ipv6_resolvers(&iface->rtdns, iface->if_index);
 	freeifaddrs(ifap);
 }
 
@@ -560,6 +563,7 @@ handle_route_message(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 	struct if_announcemsghdr	*ifan;
 	struct sockaddr_rtdns		*rtdns;
 	struct sockaddr_in6		*sin6;
+	struct iface			*iface;
 	int				 xflags;
 	char				 ifnamebuf[IFNAMSIZ];
 	char				*if_name;
@@ -651,6 +655,12 @@ handle_route_message(struct rt_msghdr *rtm, struct sockaddr **rti_info)
 				log_warnx("ignoring invalid RTM_PROPOSAL");
 				return;
 			}
+			iface = get_iface_by_id(rtm->rtm_index);
+			if (iface == NULL)
+				break;
+			memcpy(&iface->rtdns, rtdns, sizeof(iface->rtdns));
+			if (IN6_IS_ADDR_UNSPECIFIED(&iface->in6))
+				break;
 			handle_ipv6_resolvers(rtdns, rtm->rtm_index);
 			break;
 		default:
