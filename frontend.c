@@ -724,7 +724,6 @@ handle_ipv6_resolvers(struct sockaddr_rtdns *rtdns, uint32_t if_index)
 		    IN6_IS_ADDR_MC_LINKLOCAL(&sin6.sin6_addr) ||
 		    IN6_IS_ADDR_MC_INTFACELOCAL(&sin6.sin6_addr))
 			sin6.sin6_scope_id = if_index;
-		//log_warnx("%s: %s", __func__, sin6_to_str(&sin6));
 		tmp = resolv_conf;
 		if (asprintf(&resolv_conf, "%snameserver %s\n", tmp ==
 		    NULL ? "" : tmp, sin6_to_str(&sin6)) == -1) {
