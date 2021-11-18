@@ -464,7 +464,11 @@ update_iface(uint32_t if_index, char* if_name)
 		}
 	}
 
-	log_debug("selected: %s", sin6_to_str(&selected_sin6));
+	if (!IN6_IS_ADDR_UNSPECIFIED(&selected_sin6.sin6_addr))
+		log_debug("selected: %s", sin6_to_str(&selected_sin6));
+	else
+		log_debug("selected: none");
+
 	if (memcmp(&iface->in6, &selected_sin6.sin6_addr,
 	    sizeof(struct in6_addr)) != 0) {
 		memcpy(&iface->in6, &selected_sin6.sin6_addr,
@@ -945,7 +949,8 @@ update_clat(uint32_t if_index) {
 
 	memset(&clat_imsg, 0, sizeof(clat_imsg));
 
-	if (iface == NULL || !iface->dns64_enabled)
+	if (iface == NULL || !iface->dns64_enabled ||
+	    IN6_IS_ADDR_UNSPECIFIED(&iface->in6))
 		log_debug("%s: disable clat", __func__);
 	else {
 		log_debug("%s: enable clat %s - %s/%d",
