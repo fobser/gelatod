@@ -407,7 +407,7 @@ sin6_to_str(struct sockaddr_in6 *sin6)
 	error = getnameinfo((struct sockaddr *)sin6, sin6->sin6_len, hbuf,
 	    sizeof(hbuf), NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
 	if (error) {
-		log_warnx("%s", gai_strerror(error));
+		log_warnx("getnameinfo: %s", gai_strerror(error));
 		strlcpy(hbuf, "unknown", sizeof(hbuf));
 	}
 	return hbuf;
